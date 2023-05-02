@@ -27,15 +27,10 @@ int main(int argc, char *argv[]) {
 
   Metric error_metric = Metric(
       my_experiment->database_name, "error",
-      std::vector<std::string>{"run", "step", "error", "accuracy", "test"},
-      std::vector<std::string>{"int", "int", "real", "real", "int"},
-      std::vector<std::string>{"run", "step", "test"});
-
-  Metric model_metric =
-      Metric(my_experiment->database_name, "model",
-             std::vector<std::string>{"run", "step", "model", "input_vertices"},
-             std::vector<std::string>{"int", "int", "mediumtext", "int"},
-             std::vector<std::string>{"run"});
+      std::vector<std::string>{"run", "step", "train_error", "train_accuracy",
+                               "test_error", "test_accuracy"},
+      std::vector<std::string>{"int", "int", "real", "real", "real", "real"},
+      std::vector<std::string>{"run", "step"});
 
   MNISTEnviroment *env =
       new MNISTEnviroment(my_experiment->get_int_param("seed"));
@@ -65,6 +60,8 @@ int main(int argc, char *argv[]) {
                                        my_experiment->get_float_param("higher"),
                                        seed);
   network = weight_initializer.initialize_weights(network);
+  float train_error = 5;
+  bool check_flag = false;
   for (int i = 0; i < my_experiment->get_int_param("steps"); i++) {
     env->step();
     auto inps = env->get_features();
@@ -81,9 +78,27 @@ int main(int argc, char *argv[]) {
     network->estimate_gradient(target);
 
     opti->update_weights(network);
-    //    network->print_graph();
 
-    if (i % my_experiment->get_int_param("frequency") == 0) {
+    //    network->print_graph();
+    if (i % 500 == 0) {
+      float total_error = 0;
+      int total_samples = 1000;
+      for (int temp = 0; temp < total_samples; temp++) {
+        env->step();
+        auto inps = env->get_features();
+        float target = env->get_target();
+        network->set_input_values(inps);
+        float prediction = network->update_values();
+        float delta = prediction - target;
+        total_error += delta * delta;
+      }
+      total_error /= total_samples;
+//      std::cout << "Sample total_error = " << total_error << std::endl;
+      if (total_error < 0.5)
+        check_flag = true;
+    }
+    if (i % my_experiment->get_int_param("frequency") == 0 || check_flag) {
+      check_flag = false;
       //      Evaluate error on the train set
       float correct = 0;
       auto list_of_x = env->get_all_x();
@@ -101,56 +116,50 @@ int main(int argc, char *argv[]) {
         total_error += temp_delta * temp_delta;
       }
       total_error /= list_of_x.size();
-      std::cout << "MSE = " << total_error << std::endl;
-      std::cout << "Accuracy = " << correct / 60000.0f << std::endl;
-      std::vector<std::string> val;
-      val.push_back(std::to_string(my_experiment->get_int_param("run")));
-      val.push_back(std::to_string(i));
-      val.push_back(std::to_string(total_error));
-      val.push_back(std::to_string(correct / 60000.0f));
-      val.push_back(std::to_string(0));
-      error_metric.record_value(val);
+      train_error = total_error;
+//      std::cout << "Actual error = " << total_error << std::endl;
+      if (train_error < 0.5) {
+        std::vector<std::string> val;
+        val.push_back(std::to_string(my_experiment->get_int_param("run")));
+        val.push_back(std::to_string(i));
+        val.push_back(std::to_string(total_error));
+        val.push_back(std::to_string(correct / list_of_x.size()));
 
-      //      Evaluate error on the test set
-      correct = 0;
-      list_of_x = test_env->get_all_x();
-      list_of_targets = test_env->get_all_y();
-      total_error = 0;
-      for (int temp = 0; temp < list_of_x.size(); temp++) {
-        auto temp_x = list_of_x[temp];
-        float temp_target = list_of_targets[temp];
-        network->set_input_values(temp_x);
-        float temp_prediction = network->update_values();
-        float temp_delta = temp_prediction - temp_target;
-        if (std::abs(temp_delta) < 0.5)
-          correct++;
+        correct = 0;
+        list_of_x = test_env->get_all_x();
+        list_of_targets = test_env->get_all_y();
+        total_error = 0;
+        for (int temp = 0; temp < list_of_x.size(); temp++) {
+          auto temp_x = list_of_x[temp];
+          float temp_target = list_of_targets[temp];
+          network->set_input_values(temp_x);
+          float temp_prediction = network->update_values();
+          float temp_delta = temp_prediction - temp_target;
+          if (std::abs(temp_delta) < 0.5)
+            correct++;
 
-        total_error += temp_delta * temp_delta;
+          total_error += temp_delta * temp_delta;
+        }
+        total_error /= list_of_x.size();
+        val.push_back(std::to_string(total_error));
+        val.push_back(std::to_string(correct / list_of_x.size()));
+        error_metric.record_value(val);
+        error_metric.commit_values();
+        return 0;
       }
-      total_error /= list_of_x.size();
-      std::cout << "Test MSE = " << total_error << std::endl;
-      std::cout << "Test Accuracy = " << correct / 10000.0f << std::endl;
-      val.clear();
-      val.push_back(std::to_string(my_experiment->get_int_param("run")));
-      val.push_back(std::to_string(i));
-      val.push_back(std::to_string(total_error));
-      val.push_back(std::to_string(correct / 10000.0f));
-      val.push_back(std::to_string(1));
-      error_metric.record_value(val);
-      error_metric.commit_values();
     }
-    if (i % (my_experiment->get_int_param("frequency") * 10) == 0) {
-      std::vector<std::string> val;
-      val.push_back(std::to_string(my_experiment->get_int_param("run")));
-      val.push_back(std::to_string(i));
-      //      std::cout << "Size of string " <<
-      //      network->serialize_graph().size() << std::endl;
-      val.push_back(network->serialize_graph());
-      val.push_back(
-          std::to_string(my_experiment->get_int_param("input_vertices")));
-      model_metric.record_value(val);
-      model_metric.commit_values_by_updating();
-    }
+    //    if (i % (my_experiment->get_int_param("frequency") * 10) == 0) {
+    //      std::vector<std::string> val;
+    //      val.push_back(std::to_string(my_experiment->get_int_param("run")));
+    //      val.push_back(std::to_string(i));
+    //      //      std::cout << "Size of string " <<
+    //      //      network->serialize_graph().size() << std::endl;
+    //      val.push_back(network->serialize_graph());
+    //      val.push_back(
+    //          std::to_string(my_experiment->get_int_param("input_vertices")));
+    //      model_metric.record_value(val);
+    //      model_metric.commit_values_by_updating();
+    //    }
   }
 
   error_metric.commit_values();

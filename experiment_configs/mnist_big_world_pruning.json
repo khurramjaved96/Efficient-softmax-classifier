@@ -1,0 +1,69 @@
+{
+  "experiment": {
+    "name": "sweep_model_size_final",
+    "params": {
+      "seed": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11"
+      ],
+      "steps": [
+        "10000000"
+      ],
+      "frequency": [
+        "200000"
+      ],
+      "non_linearity": [
+        "sigmoid"
+      ],
+      "parameters": [
+        "10000"
+      ],
+      "density": [
+        "50"
+      ],
+      "step_size": [
+        "0.1"
+      ],
+      "optimizer": [
+        {
+          "adam": {
+            "b1": [
+              "0.99"
+            ],
+            "b2": [
+              "0.999"
+            ],
+            "epsilon": [
+              "1e-8"
+            ]
+          }
+        }
+      ],
+      "input_vertices": [
+        "784"
+      ],
+      "lower": [
+        "-0.02"
+      ],
+      "higher": [
+        "0.02"
+      ],
+      "utility_trace": [
+        "0.99999"
+      ],
+      "samples": [
+        "60000"
+      ]
+    }
+  }
+}

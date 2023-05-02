@@ -54,8 +54,7 @@ std::string Graph::serialize_graph() {
     for (auto incoming : v->incoming_edges) {
       empty_string += std::to_string(incoming.from) + " " +
                       std::to_string(incoming.to) + " " +
-                      std::to_string(incoming.weight) + " " +
-                      v->type +"\n";
+                      std::to_string(incoming.weight) + " " + v->type + "\n";
     }
     counter++;
   }

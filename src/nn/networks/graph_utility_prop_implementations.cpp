@@ -58,7 +58,7 @@ void UtilityPropagation::update_utility() {
       list_of_vertices[i]->utility = 1;
     }
   }
-  list_of_vertices[list_of_vertices.size() - 1]->utility = 1;
+//  list_of_vertices[list_of_vertices.size() - 1]->utility = 1;
   //  list_of_vertices[list_of_vertices.size() - 1]->utility =
   //  std::abs(list_of_vertices[list_of_vertices.size() - 1]->forward());
 
